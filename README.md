@@ -70,10 +70,10 @@ var MainRouter = Router.extend({
 });
 
 var router = new MainRouter({
-  views: views, ///a hash table of views that can be rendered by this Router, matched via passing the hash key to `loadView`
+  views: views, ///a hash table of views that can be available to this Router, matched via passing the hash key to `loadView`
 });
 
-global.app.navigate = router.navigate;
-global.app.router = router;
+window.app.navigate = router.navigate;
+window.app.router = router;
 
 ```

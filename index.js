@@ -1,4 +1,5 @@
-var State = require('ampersand-state'),
+var _ = require('lodash'),
+    State = require('ampersand-state'),
     Collection = require('ampersand-collection'),
     page  = require('page'),
     ViewSwitcher = require('ampersand-view-switcher'),
@@ -6,34 +7,41 @@ var State = require('ampersand-state'),
     Router;
     
 Router = State.extend({
-
-  children: {
-    options: State,
-  },
   
   collections: {
     routers: Collection,
-  }
+  },
   
   props: {
-    viewSwitcher: "object",
+    el: "object",
     views: { 
+      required: true,
       type: "object"
     },
-    rootPath: "string",
-    rendered: {
-      type: "boolean",
-      default: false
+    rootPath: {
+      type: "string",
+      default: ""
+    },
+    options: "object"
+  },
+  derived: {
+    viewSwitcher: {
+      deps: ["el"],
+      fn: function() {
+        return new ViewSwitcher(this.el);
+      }
     }
   },
   
   initialize: function(attrs, options) {
     this.options = options;
+    _.bindAll(this);
     page(this._before);
-    this.setupRoutes(this.getRouteFn());
-    page(this.render);
+    this.setupRoutes(this.createRouteFn());
+    //page(this.render);
     if (!initialized) {
-      page('*', this.loadView('fourOhFour'), this.render);
+      console.log("HERE");
+      //page('*', this.loadView('fourOhFour'), this.render);
       page(options);
       intialized = true;
     }
@@ -44,19 +52,24 @@ Router = State.extend({
   },
   
   loadView: function(view) {
+    console.log("LOAD VIEW", view, !this.views[view], this.views)
+    var self = this;
     if (!this.views[view]) return this.notFound;
     return function (context, next) {
-      context.view = this.views[view];
+      console.log("EXEC", view);
+      context.view = self.views[view];
       next();
     }
   },
   
   _before: function(context, next) {
+    console.log("BEFORE", context);
     this.rendered = false;
     next();
   },
   
-  render: function() {
+  render: function(context, next) {
+    console.log("RENDER", context.view, this.rendered, this.switch, this);
     if (!context.view) return next();
     if (this.rendered) return new Error("Calling rendered multiple times!");
     this.switch(new context.view(context));
@@ -65,32 +78,30 @@ Router = State.extend({
   
   switch: function(view) {
     this.trigger('switch', view);
+    console.log("SWITCH", view)
     this.viewSwitcher.set(view);
     this.trigger('afterSwitch', view);
   },
   
   createRouteFn: function() {
     var self = this;
-    var r = function(path) {
-      path = this.getPath();
-      page.apply(this, arguments);
+    var r = function() {
+      var args = Array.prototype.slice.call(arguments);
+      if (_.isFunction(args[0])) {
+        args = ["*"].concat(args);
+      }
+      args[0] = self.getPath(args[0]);
+      page.apply(self, args);
     };
     
-    r.prototype.enter = function(path) {
-      arguments[0] = this.getPath(arguments[0]);
-      page.apply(this, arguments);
+    r.enter = function(path) {
+      arguments[0] = self.getPath(arguments[0]);
+      page.apply(self, arguments);
     }
     
-    r.prototype.exit = function(path) {
-      arguments[0] = this.getPath(arguments[0]);
-      page.exit.apply(this, arguments);
-    }
-    
-    r.prototype.getPath = function(path) {
-      if (path.indexOf(self.rootPath) === -1) {
-        path = self.rootPath + path;
-      }
-      return path;
+    r.exit = function(path) {
+      arguments[0] = self.getPath(arguments[0]);
+      page.exit.apply(self, arguments);
     }
     
     r.prototype.router = function(path, Router) {
@@ -98,6 +109,19 @@ Router = State.extend({
     }
     
     return r;
+  },
+  
+  getPath: function(path) {
+    if (!path && !this.rootPath) {
+      return '/';
+    }
+    if (!path) {
+      return this.rootPath + '/*';
+    }
+    if (path.indexOf(this.rootPath) === -1) {
+      return this.rootPath + path;
+    }
+    return path;
   },
   
   registerRouter: function(routes, router) {
@@ -110,12 +134,14 @@ Router = State.extend({
     }
     
     _.each(routes, function(Router, route) {
-      self.routers.push(new Router({ rootPath: route }));
+      var options = _.assign({ rootPath: route }, self.options);
+      self.routers.push(new Router(options));
     });
     
   },
   
   notFound: function() {
+    console.log("NOT FOUND");
     return new Error("404 Not Found");
   },
   
