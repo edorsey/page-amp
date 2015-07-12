@@ -22,7 +22,8 @@ Router = State.extend({
       type: "string",
       default: ""
     },
-    options: "object"
+    options: "object",
+    page: "function"
   },
   derived: {
     viewSwitcher: {
@@ -35,6 +36,7 @@ Router = State.extend({
   
   initialize: function(attrs, options) {
     this.options = options;
+    this.page = page;
     _.bindAll(this);
     page(this._before);
     this.setupRoutes(this.createRouteFn());
@@ -98,8 +100,12 @@ Router = State.extend({
       page.exit.apply(self, arguments);
     }
     
-    r.prototype.router = function(path, Router) {
+    r.router = function(path, Router) {
       self.registerRouter(path, Router);
+    }
+    
+    r.base = function(path) {
+      page.base(path);
     }
     
     return r;
@@ -135,7 +141,9 @@ Router = State.extend({
   },
   
   notFound: function() {
-    return new Error("404 Not Found");
+    var err = new Error("404 Not Found");
+    console.warn(err);
+    return err;
   },
   
   redirect: function(path) {
