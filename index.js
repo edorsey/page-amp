@@ -41,9 +41,15 @@ Router = State.extend({
     page(this._before);
     this.setupRoutes(this.createRouteFn());
     page(this.render);
+    if (options && options.start) {
+      this.start();
+    }
+  },
+  
+  start: function() {
     if (!initialized) {
       page('*', this.loadView('fourOhFour'), this.render);
-      page(options);
+      page(this.options);
       intialized = true;
     }
   },
